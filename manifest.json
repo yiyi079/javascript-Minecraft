@@ -1,0 +1,44 @@
+{
+    "format_version": 2,
+    "header": {
+        "description": "使用javascript编写的行为包",
+        "name": "myjavascript",
+        "uuid": "62586c71-5958-5a68-6332-4e7961584230",
+        "version": [
+            2,
+            0,
+            0
+        ],
+        "min_engine_version": [
+            1,
+            19,
+            60
+        ]
+    },
+    "modules": [
+        {
+            "type": "script",
+            "uuid": "e09a0e53-ab93-6942-cda2-2c95a2d6fe9d",
+            "entry": "scripts/start.js",
+            "language": "JavaScript",
+            "version": [
+                0,
+                1,
+                0
+            ]
+        }
+    ],
+    "capabilities": [
+        "script_eval"
+    ],
+    "dependencies": [
+        {
+            "module_name": "@minecraft/server",
+            "version": "1.8.0-beta"
+        },
+        {
+            "module_name": "@minecraft/server-ui",
+            "version": "1.2.0-beta"
+        }
+    ]
+}

@@ -1,0 +1,344 @@
+import { world, system, ItemStack, Player } from '@minecraft/server';
+import { ModalFormData } from '@minecraft/server-ui';
+
+function i_cmd_stick_use(obj) {
+	if(obj.itemStack.typeId == "minecraft:stick" && obj.itemStack.nameTag == "i:cmd_stick") {
+		obj.cancel = true;
+		system.run(() => {
+			playerRunCmd(obj.source!=undefined?obj.source:obj.player);
+		});
+	}
+}
+
+var tab_width = 4; // n space
+//var TAB_SPACE = makeTab(tab_width);
+var last_cmd = undefined;
+var last_type = 1;
+var new_cmd = last_cmd;
+var new_type = last_type;
+var last_save = true;
+var is_debug = false;
+const player = world.getAllPlayers()[0];
+//const native_func = world.sendMessage+'';
+
+const FormattingCodes = {
+	black: '§0',
+	dark_blue: '§1',
+	dark_green: '§2',
+	dark_aqua: '§3',
+	dark_red: '§4',
+	dark_purple: '§5',
+	gold: '§6',
+	gray: '§7',
+	dark_gray: '§8',
+	blue: '§9',
+	green: '§a',
+	aqua: '§b',
+	red: '§c',
+	light_purple: '§d',
+	yellow: '§e',
+	white: '§f',
+	minecoin_gold: '§g',
+	material_quartz: '§h',
+	material_iron: '§i',
+	material_netherite: '§j',
+	material_redstone: '§m',
+	material_copper: '§n',
+	material_gold: '§p',
+	material_emerald: '§q',
+	material_diamond: '§s',
+	material_lapis: '§t',
+	material_amethyst: '§u',
+	obfuscated: '§k',
+	bold: '§l',
+	strikethrough: '§m', //Not supported
+	underline: '§n', //Not supported
+	italic: '§o',
+	reset: '§r'
+}
+
+
+const cmdTypes = ['command', 'javascript', 'message'];
+
+world.beforeEvents.itemUse.subscribe(i_cmd_stick_use);
+world.beforeEvents.itemUseOn.subscribe(i_cmd_stick_use);
+//world.beforeEvents.playerInteractWithBlock.subscribe(i_cmd_stick_use);
+world.beforeEvents.playerInteractWithEntity.subscribe(i_cmd_stick_use);
+
+
+
+
+function msg(_msg, player) {
+	if(player == undefined)
+		player = world;
+	player.sendMessage(_msg);
+}
+
+function cmd(_cmd, player) { 
+	if(player == undefined)
+		player = world.getAllPlayers()[0];
+	return player.runCommand(_cmd);
+}
+
+function err(...msgs) {
+	let m = FormattingCodes.italic + FormattingCodes.dark_red;
+	for(let _msg in msgs)
+		m += _msg;
+	msg(m + FormattingCodes.reset);
+}
+
+function debugMsg(...msgs) {
+	if(is_debug) Message(...msgs);
+}
+
+function playerRunCmd(player) {
+	//Message("playerRunCmd() called", new_cmd, new_type);
+	new ModalFormData()
+		.title('Run Command')
+		.textField('CMD', ' Command', last_cmd)
+		.toggle('save', last_save)
+		.dropdown('type', cmdTypes, last_type)
+		.show(player)
+		.then(formData => {
+			if(formData.isCanceled) return;
+			if(last_save = formData.formValues[1]) {
+				last_cmd = formData.formValues[0];
+				last_type = formData.formValues[2];
+			}
+			runCmd(new_cmd = formData.formValues[0], new_type = formData.formValues[2]);
+		})
+		.catch(error => {
+			if(last_cmd == new_cmd && last_type == new_type && error.name == 'TypeError' && error.message == "cannot read property '1' of undefined") return;
+			player.sendMessage(FormattingCodes.italic + FormattingCodes.dark_red + 'Error: Failed to run cmd(' +cmdTypes[new_type]+ '):\n' + new_cmd + '\n' + error + FormattingCodes.reset);
+			//if(new_cmd != null)
+				//player.sendMessage(new_cmd);
+			//player.sendMessage(error);
+		});
+}
+
+function runCmd(str, cmdType) {
+	if(str!='') switch(cmdType) {
+		case 0:
+			cmd(str);
+			break;
+		case 1:
+			//let res = eval(str);
+			//if(res!=undefined)
+				//Message(str, ': ', res);
+			Message(str,': ', eval(str));
+			break;
+		case 2:
+			msg(str);
+			break;
+		default:
+			Message(FormattingCodes.italic + FormattingCodes.dark_red, 'Error: Not supported command type: ', cmdType, FormattingCodes.reset);
+	}
+}
+
+function makeTab(tabs) {
+	let m = '';
+	for(let i = 0; i < tabs; i++)
+		m += ' ';
+	return m;
+}
+
+function format(data, tabs, isBase) {
+	let m = '';
+	let isFirst = true;
+	if(tabs == undefined)
+		tabs = 0;
+	if(isBase === undefined)
+		isBase = true;
+		
+	switch(Object.prototype.toString.call(data)) {
+		case '[object Object]':
+			if(isObjectEmpty(data)) {
+				m += '{}'
+				break;
+			}
+			m += (isBase ? '' : '\n') + makeTab(tabs) + '{';
+			tabs += tab_width;
+			for(let key in data) {
+				m += '\n' + makeTab(tabs) + key + ': ' + format(data[key], tabs, false);
+				isFirst = false;
+			}
+			m += '\n' + makeTab(tabs-tab_width) + '}';
+			break;
+		case '[object Array]':
+			if(isObjectEmpty(data)) {
+				m += '[]';
+				break;
+			}
+			m += (isBase ? '' : '\n') + makeTab(tabs) + '[';
+			tabs += tab_width;
+			for(let d of data) {
+				m += '\n' + makeTab(tabs) + format(d, tabs, true);
+				isFirst = false;
+			}
+			m += '\n' + makeTab(tabs-tab_width) + ']';
+			break;
+		case '[object Null]':
+			m += FormattingCodes.italic + FormattingCodes.dark_gray + '(null)' + FormattingCodes.reset;
+			break;
+		case '[object Undefined]':
+			m += FormattingCodes.italic + FormattingCodes.dark_gray + '(undefined)' + FormattingCodes.reset;
+			break;
+		case '[object Function]':
+			if(/\[native code\]/.test(data+''))
+				m += FormattingCodes.italic + FormattingCodes.aqua + '(function)' + FormattingCodes.reset;
+			else
+				m += formatFunctionStr(data+'', tabs);
+			break;
+		case '[object String]':
+			//m += FormattingCodes.dark_green + data + FormattingCodes.reset;
+			//break;
+		case '[object Number]':
+		case '[object Boolean]':
+			m += FormattingCodes.aqua + data + FormattingCodes.reset;
+			break;
+		default:
+			m += data;
+	}
+	//return replaceTabToSpace(m);
+	return m;
+}
+
+function Message(...msgs) {
+	let m = '';
+	for(let _msg of msgs)
+		m += format(_msg);
+	world.sendMessage(m);
+}
+
+function strToHexCharCode(str) {
+　　if(str === "")
+　　　　return "";
+　　var hexCharCode = [];
+　　hexCharCode.push("0x"); 
+　　for(var i = 0; i < str.length; i++) {
+　　　　hexCharCode.push((str.charCodeAt(i)).toString(16));
+　　}
+　　return hexCharCode.join("");
+}
+
+function hexCharCodeToStr(hexCharCodeStr) {
+　　var trimedStr = hexCharCodeStr.trim();
+　　var rawStr = 
+　　trimedStr.substr(0,2).toLowerCase() === "0x"
+　　? 
+　　trimedStr.substr(2) 
+　　: 
+　　trimedStr;
+　　var len = rawStr.length;
+　　if(len % 2 !== 0) {
+　　　　alert("Illegal Format ASCII Code!");
+　　　　return "";
+　　}
+　　var curCharCode;
+　　var resultStr = [];
+　　for(var i = 0; i < len;i = i + 2) {
+　　　　curCharCode = parseInt(rawStr.substr(i, 2), 16); // ASCII Code Value
+　　　　resultStr.push(String.fromCharCode(curCharCode));
+　　}
+　　return resultStr.join("");
+}
+
+function isObjectEmpty(obj) {
+	for (let key in obj)
+		return false;
+	return true;
+}
+
+function replaceTabToSpace(str) {
+	let res = '';
+	let TAB = makeTab(tab_width);
+	let matches = str.matchAll(/\t/g);
+	let last_match = 0;
+	for(let match of matches) {
+		debugMsg('\\t matched');
+		res += str.substring(last_match, match.index) + TAB;
+		last_match = match.index + 1;
+	}
+	return res + str.substring(last_match);
+}
+
+/*
+function formatFunctionStr(str, tabs) {
+	let res = '';
+	const LINE_TAB = (tabs == undefined ? '' : makeTab(tabs));
+	const TAB = makeTab(tab_width);
+	const matches = str.matchAll(/(?<![A-Za-z0-9_.])(var|let|function|for|in|of|if|else|return|switch|case|while|undefined|null|default|break)(?![A-Za-z0-9_.])/g);
+	let last_match = 0;
+	for(let match of matches) {
+		res += str.substring(last_match, match.index) + FormattingCodes.dark_purple + match[0] + FormattingCodes.reset;
+		last_match = match.index + match[0].length;
+	}
+	return res + str.substring(last_match);
+}
+*/
+
+function formatFunctionStr(str, tabs) {
+	//debugMsg('formatFunctionStr() called', str, tabs);
+	let res = '';
+	const LINE_TAB = (tabs == undefined ? '' : makeTab(tabs));
+	const TAB = makeTab(tab_width);
+	//debugMsg('LINE_TAB = "', LINE_TAB, '" TAB = "', TAB, '"');
+	
+	//格式化 关键字
+	let matches = str.matchAll(/(?<![A-Za-z0-9_.])(var|let|function|for|in|of|if|else|return|switch|case|while|undefined|null|default|break)(?![A-Za-z0-9_.])/g);
+	let last_match = 0;
+	for(let match of matches) {
+		res += str.substring(last_match, match.index) + FormattingCodes.dark_purple + match[0] + FormattingCodes.reset;
+		last_match = match.index + match[0].length;
+	}
+	str = res + str.substring(last_match);
+	
+	//格式化 布尔值
+	/*
+	res = '';
+	matches = str.matchAll(/(?<![A-Za-z0-9_.])(true|false)(?![A-Za-z0-9_.])/g);
+	last_match = 0;
+	for(let match of matches) {
+		res += str.substring(last_match, match.index) + FormattingCodes.aqua + match[0] + FormattingCodes.reset;
+		last_match = match.index + match[0].length;
+	}
+	str = res + str.substring(last_match);
+	//debugMsg(str);
+	*/
+	
+	//格式化 注释
+	res = '';
+	matches = str.matchAll(/\/\/.*|\/\*[^]*\*\//g);
+	last_match = 0;
+	for(let match of matches) {
+		res += str.substring(last_match, match.index) + FormattingCodes.italic + FormattingCodes.dark_green + match[0] + FormattingCodes.reset;
+		last_match = match.index + match[0].length;
+		//debugMsg(last_match);
+	}
+	//debugMsg(str.substring(last_match));
+	str = res + str.substring(last_match);
+	//debugMsg(str);
+	
+	//格式化 缩进
+	res = '';
+	matches = str.matchAll(/\n/g);
+	last_match = 0;
+	for(let match of matches) {
+		//debugMsg('\\n matched res = ');
+		res += str.substring(last_match, match.index) + match[0] + LINE_TAB;
+		last_match = match.index + 1;
+		//debugMsg(res);
+	}
+	str = res + str.substring(last_match);
+	
+	//格式化 制表符
+	res = '';
+	matches = str.matchAll(/\t/g);
+	last_match = 0;
+	for(let match of matches) {
+		//debugMsg('\\t matched');
+		res += str.substring(last_match, match.index) + TAB;
+		last_match = match.index + 1;
+	}
+	return res + str.substring(last_match);
+}

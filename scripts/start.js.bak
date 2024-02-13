@@ -1,0 +1,104 @@
+import { world, system, ItemStack, Player } from '@minecraft/server';
+import { ModalFormData } from '@minecraft/server-ui';
+//import { MinecraftItemTypes, MinecraftEnchantmentTypes } from '@minecraft/vanilla-data';
+
+//import * from '@minecraft/server'
+//import * from '@minecraft/server-ui'
+
+world.beforeEvents.itemUseOn.subscribe( useItemOn => {
+	if(useItemOn.itemStack.typeId == "minecraft:stick" && useItemOn.itemStack.nameTag == "i:cmd_stick")
+		system.run(() => {
+			//getFeather(world.getAllPlayers()[0]);
+			playerRunCmd(world.getAllPlayers()[0]);
+		});
+});
+
+//var js_cmd;
+var new_cmd;
+var last_cmd = undefined;
+var player = world.getAllPlayers()[0];
+
+/*
+function runJavaScript(player) {
+	let ModalForm = new ModalFormData()
+		.title('Run JavaScript');
+	ModalForm
+		.textField('JS', 'JavaScript', last_cmd);
+	ModalForm
+		.show(player)
+		.then(formData => {
+			eval(js_cmd = formData.formValues[0]);
+			if(js_cmd!=null)
+				last_cmd = js_cmd;
+			//player.sendMessage(js_cmd);
+		})
+		.catch(error => {
+			player.sendMessage('Failed to run code:\n' + js_cmd ? (js_cmd + '\n') : '' + error);
+		});
+}
+
+
+
+function getFeather(player) {
+	let enchantment = {
+		level: 1,
+		type: 'minecraft:fire_aspect',
+	};
+	let featherItem = new ItemStack('minecraft:feather', 255);
+	featherItem
+		.getComponent('minecraft:enchantable');
+		//.addEnchantment(enchantment);
+	player
+		.getComponent('minecraft:inventory')
+		.container.setItem(0, featherItem);
+}
+
+*/
+
+function msg(_msg, player) {
+	if(player == undefined) player = world;
+	player.sendMessage(_msg); }
+
+function cmd(_cmd, player) { 
+	if(player == undefined) player = world.getAllPlayers()[0];
+	player.runCommand;
+}
+
+function playerRunCmd(player) {
+	let ModalForm = new ModalFormData()
+		.title('Run Command');
+	ModalForm
+		.textField('CMD', ' Command', last_cmd);
+	ModalForm
+		.show(player)
+		.then(formData => {
+		new_cmd = formData.formValues[0];
+	if(new_cmd!=null)
+		last_cmd = new_cmd;
+	runCmd(new_cmd);
+}
+		)
+		.catch(error => {
+			player.sendMessage('Failed to run cmd:');
+			if(new_cmd != null)
+				player.sendMessage(new_cmd);
+			player.sendMessage(error);
+		});
+}
+
+function runCmd(_cmd) {
+	if(_cmd == '') return;
+	let c = _cmd.substring(2);
+	switch(_cmd[0]) {
+		case 'c':
+			cmd(c);
+			break;
+		case 'j':
+			eval(c);
+			break;
+		case 'm':
+			msg(c)
+		default:
+			msg('Not supported command:\n' + _cmd);
+	}
+}
